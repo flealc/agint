@@ -9,7 +9,7 @@ dependencies = [
 ]
 
 [project.scripts]
-agint = "assistant.main:main"
+agint = "agint.main:main"
 
 [build-system]
 requires = ["hatchling"]
