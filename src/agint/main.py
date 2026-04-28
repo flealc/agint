@@ -1,6 +1,7 @@
 from agint.config import load_settings
 from agint.models import call_model
 from agint.events import append_event
+from agint.approvals import request_approval
 
 from pathlib import Path
 
@@ -40,6 +41,33 @@ def main():
 
     if user_message.startswith("/task "):
       title = user_message.removeprefix("/task").strip()
+
+      approved = request_approval(
+        "tasks.create",
+        {
+          "title": title,
+          "source": "manual",
+        },
+      )
+
+      append_event(
+        settings.event_log_path,
+        "approval",
+        {
+          "session_id": session_id,
+          "tool_name": "tasks.create",
+          "tool_args": {
+            "title": title,
+            "source": "manual",
+          },
+          "approved": approved,
+        },
+      )
+
+      if not approved:
+        print("\nTask creation cancelled.")
+        continue
+      
       task = create_task(store, title=title)
       print(f"\nCreated task #{task['id']}: {task['title']}")
       continue
