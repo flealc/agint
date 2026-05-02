@@ -10,12 +10,27 @@ from agint.tools.registry import build_tools
 from agint.agent_loop import run_agent_turn
 
 SYSTEM_PROMPT = """You are a local personal assistant.
-You help with notes tasks, reminders, calendar planning, and summaries.
+You help with notes, tasks, reminders, calendar planning, and summaries.
 You may use available tools when they are relevant.
-For write actions, that app will ask the user for approval before committing changes.
+For write actions, the app will ask the user for approval before committing changes.
 Do not claim that you created, updated, or listed something unless you used a tool or
 the user explicitly provided that information.
 """
+
+
+def print_help() -> None:
+    print(
+        """
+Commands:
+    /help           Show this help message
+    /tools          List available model tools
+    /tasks          List open tasks
+    /task <title>   Create a task manually with approval
+    /quit           Exit
+    
+Anything else is sent to the assistant.
+""".strip()
+    )
 
 
 def main():
@@ -34,15 +49,19 @@ def main():
 
     print("agint local assistant")
     print(f"default model alias: {settings.default_model_alias}")
-    print("Type 'exit' or 'quit' to stop.")
+    print("Type '/help' for commands, or '/quit' to stop.")
 
     while True:
         user_message = input("\nYou: ").strip()
 
-        if user_message.lower() in {"exit", "quit"}:
+        if user_message.lower() in {"exit", "quit", "/exit", "/quit"}:
             break
 
         if not user_message:
+            continue
+
+        if user_message == "/help":
+            print_help()
             continue
 
         if user_message.startswith("/task "):
@@ -94,6 +113,11 @@ def main():
             for tool in tools.values():
                 approval = "approval required" if tool.approval_required else "safe"
                 print(f"- {tool.name}: {approval}")
+            continue
+
+        if user_message.startswith("/"):
+            print(f"\nUnknown command: {user_message}")
+            print("Type /help to see available commands.")
             continue
 
         append_event(
