@@ -70,3 +70,51 @@ class SQLiteStore:
 
         return [dict(row) for row in rows]
 
+    def create_session(self, session_id: str) -> dict[str, Any]:
+        now = utc_now()
+
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO sessions (id, summary, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (session_id, None, now, now),
+            )
+
+            row = conn.execute(
+                """
+                SELECT id, summary, created_at, updated_at
+                FROM sessions
+                WHERE id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+
+        return dict(row)
+
+    def end_session(self, session_id: str) -> dict[str, Any] | None:
+        now = utc_now()
+
+        with self.connect() as conn:
+            conn.execute(
+                """
+                UPDATE sessions
+                SET updated_at = ?
+                WHERE ID = ?
+                """,
+                (now, session_id),
+            )
+
+    def get_session(self, session_id: str) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, summary, created_at, updated_at
+                FROM sessions
+                WHERE id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+
+        return dict(row) if row else None

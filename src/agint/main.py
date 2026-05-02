@@ -172,8 +172,10 @@ def should_quit(user_message: str) -> bool:
 
 
 def log_session_start(
-    event_log_path, session_id: str, default_model_alias: str
+    event_log_path, store, session_id: str, default_model_alias: str
 ) -> None:
+    store.create_session(session_id)
+
     append_event(
         event_log_path,
         "session_start",
@@ -184,7 +186,9 @@ def log_session_start(
     )
 
 
-def log_session_end(event_log_path, session_id: str) -> None:
+def log_session_end(event_log_path, store, session_id: str) -> None:
+    store.end_session(session_id)
+
     append_event(
         event_log_path,
         "session_end",
@@ -212,13 +216,13 @@ def main():
     print(f"session id: {session_id}")
     print("Type '/help' for commands, or '/quit' to stop.")
 
-    log_session_start(event_log_path, session_id, default_model_alias)
+    log_session_start(event_log_path, store, session_id, default_model_alias)
 
     while True:
         user_message = input("\nYou: ").strip()
 
         if should_quit(user_message):
-            log_session_end(event_log_path, session_id)
+            log_session_end(event_log_path, store, session_id)
             break
 
         if not user_message:
