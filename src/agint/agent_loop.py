@@ -1,4 +1,5 @@
 import json
+import traceback
 from typing import Any
 
 from agint.approvals import request_approval
@@ -105,7 +106,26 @@ def run_agent_turn(
                     )
 
                 if approved:
-                    tool_result = tool.handler(**tool_args)
+                    try:
+                        tool_result = tool.handler(**tool_args)
+                    except Exception as exc:
+                        tool_result = {
+                            "error": "tool_execution_failed",
+                            "tool_name": tool_name,
+                            "message": str(exc),
+                        }
+
+                        append_event(
+                            event_log_path,
+                            "tool_error",
+                            {
+                                "session_id": session_id,
+                                "tool_name": tool_name,
+                                "tool_args": tool_args,
+                                "error": str(exc),
+                                "traceback": traceback.format_exc(),
+                            },
+                        )
                 else:
                     tool_result = {
                         "approved": False,
