@@ -8,14 +8,7 @@ from agint.memory.sqlite_store import SQLiteStore
 from agint.tools.tasks import create_task, list_tasks
 from agint.tools.registry import build_tools
 from agint.agent_loop import run_agent_turn
-
-SYSTEM_PROMPT = """You are a local personal assistant.
-You help with notes, tasks, reminders, calendar planning, and summaries.
-You may use available tools when they are relevant.
-For write actions, the app will ask the user for approval before committing changes.
-Do not claim that you created, updated, or listed something unless you used a tool or
-the user explicitly provided that information.
-"""
+from agint.context import initial_messages, append_user_message
 
 
 def print_help() -> None:
@@ -43,9 +36,7 @@ def main():
 
     session_id = "local-cli"
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-    ]
+    messages = initial_messages()
 
     print("agint local assistant")
     print(f"default model alias: {settings.default_model_alias}")
@@ -129,7 +120,7 @@ def main():
             },
         )
 
-        messages.append({"role": "user", "content": user_message})
+        append_user_message(messages, user_message)
 
         append_event(
             settings.event_log_path,
