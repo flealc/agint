@@ -44,6 +44,7 @@ def run_agent_turn(
     tools: dict[str, Tool],
     model_alias: str,
     max_iterations: int = 5,
+    store=None,
 ) -> str:
     for _ in range(max_iterations):
         response = call_model(
@@ -54,6 +55,13 @@ def run_agent_turn(
 
         assistant_message = extract_assistant_message(response)
         messages.append(assistant_message)
+
+        if store is not None:
+            store.add_message(
+                session_id=session_id,
+                role="assistant",
+                content=assistant_message.get("content"),
+            )
 
         append_event(
             event_log_path,
@@ -131,14 +139,24 @@ def run_agent_turn(
                         "approved": False,
                         "result": "User denied the tool call.",
                     }
+            tool_content = summarize_tool_result(tool_result)
 
             messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": tool_call.id,
-                    "content": summarize_tool_result(tool_result),
+                    "content": tool_content,
                 }
             )
+
+            if store is not None:
+                store.add_message(
+                    session_id=session_id,
+                    role="tool",
+                    content=tool_content,
+                    tool_call_id=tool_call.id,
+                    tool_name=tool_name,
+                )
 
             append_event(
                 event_log_path,

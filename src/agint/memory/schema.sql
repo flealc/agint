@@ -33,3 +33,14 @@ CREATE TABLE IF NOT EXISTS approvals(
   approved INTEGER NOT NULL,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  content TEXT,
+  tool_call_id TEXT,
+  tool_name TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (session_id) REFERENCES sessions(id)
+);

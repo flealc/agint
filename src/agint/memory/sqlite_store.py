@@ -118,3 +118,59 @@ class SQLiteStore:
             ).fetchone()
 
         return dict(row) if row else None
+
+    def add_message(
+        self,
+        session_id: str,
+        role: str,
+        content: str | None,
+        tool_call_id: str | None = None,
+        tool_name: str | None = None,
+    ) -> dict[str, Any]:
+        now = utc_now()
+
+        with self.connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO messages (
+                    session_id, role, content, tool_call_id, tool_name, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (session_id, role, content, tool_call_id, tool_name, now),
+            )
+
+        message_id = cursor.lastrowid
+
+        row = conn.execute(
+            """
+            SELECT id, session_id, role, content, tool_call_id, tool_name, created_at
+            FROM messages
+            WHERE id = ?
+            """,
+            (message_id,),
+        ).fetchone()
+
+        return dict(row)
+
+    def list_messages(
+        self,
+        session_id: str,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        query = """
+            SELECT id, session_id, role, content, tool_call_id, tool_name, created_at
+            FROM messages
+            WHERE session_id = ?
+            ORDER BY id ASC
+        """
+        params: list[Any] = [session_id]
+
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        with self.connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+
+        return [dict(row) for row in rows]

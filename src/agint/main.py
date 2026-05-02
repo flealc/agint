@@ -105,6 +105,7 @@ def run_chat_turn(
     default_model_alias: str,
     messages,
     tools,
+    store,
 ) -> None:
     append_event(
         event_log_path,
@@ -116,6 +117,12 @@ def run_chat_turn(
     )
 
     append_user_message(messages, user_message)
+
+    store.add_message(
+        session_id=session_id,
+        role="user",
+        content=user_message,
+    )
 
     append_event(
         event_log_path,
@@ -134,6 +141,7 @@ def run_chat_turn(
         messages=messages,
         tools=tools,
         model_alias=default_model_alias,
+        store=store,
     )
 
     print(f"\nAssistant: {assistant_message}")
@@ -244,6 +252,7 @@ def main():
             default_model_alias=default_model_alias,
             messages=messages,
             tools=tools,
+            store=store,
         )
 
 
