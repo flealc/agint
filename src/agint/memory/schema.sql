@@ -32,4 +32,4 @@ CREATE TABLE IF NOT EXISTS approvals(
   tool_args_json TEXT NOT NULL,
   approved INTEGER NOT NULL,
   created_at TEXT NOT NULL
-)
+);
