@@ -42,8 +42,9 @@ def run_agent_turn(
     messages: list[dict[str, Any]],
     tools: dict[str, Tool],
     model_alias: str,
+    max_iterations: int = 5,
 ) -> str:
-    while True:
+    for _ in range(max_iterations):
         response = call_model(
             messages=messages,
             tools=tool_schemas(tools),
@@ -98,6 +99,7 @@ def run_agent_turn(
                         {
                             "session_id": session_id,
                             "tool_name": tool_name,
+                            "tool_args": tool_args,
                             "approved": approved,
                         },
                     )
@@ -127,3 +129,13 @@ def run_agent_turn(
                     "result": tool_result,
                 },
             )
+    append_event(
+        event_log_path,
+        "tool_loop_limit_reached",
+        {
+            "session_id": session_id,
+            "max_iterations": max_iterations,
+        },
+    )
+
+    return "I stopped because the tool loop reached its iteration limit."
