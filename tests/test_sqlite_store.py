@@ -68,3 +68,27 @@ def test_add_and_list_messages(tmp_path):
     assert messages[0]["content"] == "Hello"
     assert messages[1]["role"] == "assistant"
     assert messages[1]["content"] == "Hi there"
+
+
+def test_get_recent_messages_returns_oldest_to_newest(tmp_path):
+    db_path = tmp_path / "assistant.db"
+    schema_path = Path("src/agint/memory/schema.sql")
+
+    store = SQLiteStore(db_path)
+    store.init_schema(schema_path)
+    store.create_session("test-session")
+
+    for index in range(5):
+        store.add_message(
+            session_id="test-session",
+            role="user",
+            content=f"message {index}",
+        )
+
+    messages = store.get_recent_messages("test-session", limit=3)
+
+    assert [message["content"] for message in messages] == [
+        "message 2",
+        "message 3",
+        "message 4",
+    ]

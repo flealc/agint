@@ -20,6 +20,7 @@ def print_help() -> None:
         """
 Commands:
     /help           Show this help message
+    /messages       Show recent persisted messages for this session
     /tools          List available model tools
     /tasks          List open tasks
     /task <title>   Create a task manually with approval
@@ -165,6 +166,20 @@ def handle_command(user_message, *, store, tools, session_id, event_log_path) ->
         return True
 
     if handle_tools_command(user_message, tools=tools):
+        return True
+
+    # temp debug command
+    if user_message == "/messages":
+        messages = store.get_recent_messages(session_id, limit=10)
+
+        if not messages:
+            print("\nNo persisted messages for this session")
+        else:
+            print("\nRecent persisted messages:")
+            for message in messages:
+                content = message.get("content") or ""
+                print(f"- {message['role']}: {content[:120]}")
+
         return True
 
     if user_message.startswith("/"):

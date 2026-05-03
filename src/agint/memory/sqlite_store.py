@@ -174,3 +174,38 @@ class SQLiteStore:
             rows = conn.execute(query, params).fetchall()
 
         return [dict(row) for row in rows]
+
+    def get_recent_messages(
+        self,
+        session_id: str,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT role, content, tool_call_id
+                FROM messages
+                WHERE session_id = ?
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (session_id, limit),
+            ).fetchall()
+
+        messages = [dict(row) for row in rows]
+        messages.reverse()
+
+        model_messages = []
+
+        for message in messages:
+            item = {
+                "role": message["role"],
+                "content": message["content"],
+            }
+
+            if message["tool_call_id"] is not None:
+                item["tool_call_id"] = message["tool_call_id"]
+
+            model_messages.append(item)
+
+        return model_messages
