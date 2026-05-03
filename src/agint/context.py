@@ -16,8 +16,7 @@ def initial_messages() -> list[dict[str, Any]]:
     ]
 
 
-def append_user_message(
-    messages: list[dict[str, Any]],
-    content: str,
-) -> None:
-    messages.append({"role": "user", "content": content})
+def build_model_context(
+    recent_messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return initial_messages() + recent_messages

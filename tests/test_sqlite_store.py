@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from agint.context import initial_messages
 from agint.memory.sqlite_store import SQLiteStore
 
 

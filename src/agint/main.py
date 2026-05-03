@@ -8,8 +8,8 @@ from agint.memory.sqlite_store import SQLiteStore
 from agint.tools.tasks import create_task, list_tasks
 from agint.tools.registry import build_tools
 from agint.agent_loop import run_agent_turn
-from agint.context import initial_messages, append_user_message
 from agint.session import create_session_id
+from agint.context import build_model_context
 
 
 QUIT_COMMANDS = {"exit", "quit", "/exit", "/quit"}
@@ -104,7 +104,6 @@ def run_chat_turn(
     session_id: str,
     event_log_path,
     default_model_alias: str,
-    messages,
     tools,
     store,
 ) -> None:
@@ -117,13 +116,14 @@ def run_chat_turn(
         },
     )
 
-    append_user_message(messages, user_message)
-
     store.add_message(
         session_id=session_id,
         role="user",
         content=user_message,
     )
+
+    recent_messages = store.get_recent_messages(session_id, limit=10)
+    model_messages = build_model_context(recent_messages)
 
     append_event(
         event_log_path,
@@ -131,7 +131,7 @@ def run_chat_turn(
         {
             "session_id": session_id,
             "model_alias": default_model_alias,
-            "message_count": len(messages),
+            "message_count": len(model_messages),
             "tool_count": len(tools),
         },
     )
@@ -139,7 +139,7 @@ def run_chat_turn(
     assistant_message = run_agent_turn(
         session_id=session_id,
         event_log_path=event_log_path,
-        messages=messages,
+        messages=model_messages,
         tools=tools,
         model_alias=default_model_alias,
         store=store,
@@ -232,7 +232,6 @@ def main():
     tools = build_tools(store)
 
     session_id = create_session_id()
-    messages = initial_messages()
 
     print("agint local assistant")
     print(f"default model alias: {default_model_alias}")
@@ -265,7 +264,6 @@ def main():
             session_id=session_id,
             event_log_path=event_log_path,
             default_model_alias=default_model_alias,
-            messages=messages,
             tools=tools,
             store=store,
         )
