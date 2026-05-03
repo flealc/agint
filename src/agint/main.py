@@ -19,12 +19,13 @@ def print_help() -> None:
     print(
         """
 Commands:
-    /help           Show this help message
-    /messages       Show recent persisted messages for this session
-    /tools          List available model tools
-    /tasks          List open tasks
-    /task <title>   Create a task manually with approval
-    /quit           Exit
+    /help               Show this help message
+    /messages           Show recent persisted messages for this session
+    /tools              List available model tools
+    /tasks              List open tasks
+    /task <title>       Create a task manually with approval
+    /read-note <path>   Read a Markdown note by vault-relative path
+    /quit               Exit
     
 Anything else is sent to the assistant.
 """.strip()
@@ -182,6 +183,19 @@ def handle_command(user_message, *, store, tools, session_id, event_log_path) ->
 
         return True
 
+    if user_message.startswith("/read-note "):
+        relative_path = user_message.removeprefix("/read-note ").strip()
+
+        try:
+            result = tools["notes.read"].handler(relative_path=relative_path)
+        except Exception as exc:
+            print(f"\nCould not read note: {exc}")
+            return True
+
+        print(f"\nNote: {result['path']}")
+        print(result["content"][:2000])
+        return True
+
     if user_message.startswith("/"):
         print(f"\nUnknown command: {user_message}")
         print("Type /help to see available commands.")
@@ -225,11 +239,12 @@ def main():
     settings = load_settings()
     event_log_path = settings.event_log_path
     default_model_alias = settings.default_model_alias
+    obsidian_vault_path = settings.obsidian_vault_path
 
     store = SQLiteStore(settings.database_path)
     schema_path = Path(__file__).parent / "memory" / "schema.sql"
     store.init_schema(schema_path)
-    tools = build_tools(store)
+    tools = build_tools(store, obsidian_vault_path)
 
     session_id = create_session_id()
 

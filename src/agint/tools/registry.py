@@ -3,6 +3,7 @@ from typing import Any, Callable
 
 from agint.memory.sqlite_store import SQLiteStore
 from agint.tools.tasks import create_task, list_tasks
+from agint.tools.notes import read_note
 
 
 @dataclass(frozen=True)
@@ -14,7 +15,7 @@ class Tool:
     approval_required: bool = False
 
 
-def build_tools(store: SQLiteStore) -> dict[str, Tool]:
+def build_tools(store: SQLiteStore, vault_path) -> dict[str, Tool]:
     return {
         "tasks.create": Tool(
             name="tasks.create",
@@ -59,6 +60,26 @@ def build_tools(store: SQLiteStore) -> dict[str, Tool]:
             handler=lambda status="open": list_tasks(store, status=status),
             approval_required=False,
         ),
+        "notes.read": Tool(
+            name="notes.read",
+            description="Read a Markdown note from the configured Obsidian vault relative path.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "relative_path": {
+                        "type": "string",
+                        "description": "Path to a Markdown note relative to the Obsidian vault.",
+                    },
+                },
+                "required": ["relative_path"],
+                "additionalProperties": False,
+            },
+            handler=lambda relative_path: read_note(
+                vault_path,
+                relative_path=relative_path,
+            ),
+            approval_required=False,
+        ),
     }
 
 
@@ -78,4 +99,3 @@ def tool_schemas(tools: dict[str, Tool]) -> list[dict[str, Any]]:
         )
 
     return schemas
-
