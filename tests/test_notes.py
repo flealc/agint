@@ -54,7 +54,7 @@ def test_write_draft_note_creates_markdown_draft(tmp_path):
 
     draft_path = tmp_path / result["path"]
 
-    assert result["status"] == "draft_creaated"
+    assert result["status"] == "draft_created"
     assert result["path"].startswith("drafts/agent drafts/")
     assert draft_path.exists()
     assert draft_path.read_text(encoding="utf-8") == "# My Draft\n\nHello world\n"

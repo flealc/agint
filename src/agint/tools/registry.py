@@ -4,6 +4,7 @@ from typing import Any, Callable
 from agint.memory.sqlite_store import SQLiteStore
 from agint.tools.tasks import create_task, list_tasks
 from agint.tools.notes import read_note, write_draft_note
+from agint.retrieval.qmd import qmd_search, format_qmd_results
 
 
 @dataclass(frozen=True)
@@ -13,6 +14,16 @@ class Tool:
     parameters: dict[str, Any]
     handler: Callable[..., Any]
     approval_required: bool = False
+
+
+def search_notes_with_qmd(query: str, limit: int = 5) -> dict[str, Any]:
+    results = qmd_search(query, limit=limit)
+
+    return {
+        "query": query,
+        "results": results,
+        "formatted": format_qmd_results(results),
+    }
 
 
 def build_tools(store: SQLiteStore, vault_path) -> dict[str, Tool]:
@@ -104,6 +115,27 @@ def build_tools(store: SQLiteStore, vault_path) -> dict[str, Tool]:
                 content=content,
             ),
             approval_required=True,
+        ),
+        "notes.search": Tool(
+            name="notes.search",
+            description="Search the Obsidian vault using QMD and return relevant Markdown note results.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query for notes.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of search results.",
+                    },
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+            handler=lambda query, limit=5: search_notes_with_qmd(query, limit),
+            approval_required=False,
         ),
     }
 

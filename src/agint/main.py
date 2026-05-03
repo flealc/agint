@@ -19,14 +19,15 @@ def print_help() -> None:
     print(
         """
 Commands:
-    /help               Show this help message
-    /messages           Show recent persisted messages for this session
-    /tools              List available model tools
-    /tasks              List open tasks
-    /task <title>       Create a task manually with approval
-    /read-note <path>   Read a Markdown note by vault-relative path
-    /draft <title>      Create a simple draft note with approval
-    /quit               Exit
+    /help                   Show this help message
+    /messages               Show recent persisted messages for this session
+    /tools                  List available model tools
+    /tasks                  List open tasks
+    /task <title>           Create a task manually with approval
+    /read-note <path>       Read a Markdown note by vault-relative path
+    /draft <title>          Create a simple draft note with approval
+    /search-notes <query>   Search notes with QMD
+    /quit                   Exit
     
 Anything else is sent to the assistant.
 """.strip()
@@ -232,7 +233,20 @@ def handle_command(user_message, *, store, tools, session_id, event_log_path) ->
             print(f"\nCould not create draft: {exc}")
             return True
 
-        print(f"\nCreated draft: {result['path']}")
+        print(f"\nCreated draft:\n {result['path']}")
+        return True
+
+    if user_message.startswith("/search-notes "):
+        query = user_message.removeprefix("/search-notes ").strip()
+
+        try:
+            result = tools["notes.search"].handler(query=query, limit=5)
+        except Exception as exc:
+            print(f"\nCould not search notes: {exc}")
+            return True
+
+        print("\nSearch results:\n")
+        print(result["formatted"] or "No results.")
         return True
 
     if user_message.startswith("/"):
