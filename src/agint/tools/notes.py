@@ -1,4 +1,6 @@
 from pathlib import Path
+from datetime import datetime, timezone
+import re
 
 
 def require_vault_path(vault_path: Path | None) -> Path:
@@ -30,4 +32,38 @@ def read_note(vault_path: Path | None, relative_path: str) -> dict:
     return {
         "path": relative_path,
         "content": path.read_text(encoding="utf-8"),
+    }
+
+
+def slugify_title(title: str) -> str:
+    slug = title.strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+    slug = slug.strip("-")
+    return slug or "untitled"
+
+
+def write_draft_note(
+    vault_path: Path | None,
+    title: str,
+    content: str,
+) -> dict:
+    vault = require_vault_path(vault_path)
+
+    draft_dir = vault / "drafts" / "agent drafts"
+    draft_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    filename = f"{timestamp}-{slugify_title(title)}.md"
+    path = draft_dir / filename
+
+    if path.exists():
+        raise FileExistsError(f"Draft already exists: {path.name}")
+
+    markdown = f"# {title.strip()}\n\n{content.strip()}\n"
+    path.write_text(markdown, encoding="utf-8")
+
+    return {
+        "path": str(path.relative_to(vault)),
+        "title": title,
+        "status": "draft_created",
     }

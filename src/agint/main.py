@@ -25,6 +25,7 @@ Commands:
     /tasks              List open tasks
     /task <title>       Create a task manually with approval
     /read-note <path>   Read a Markdown note by vault-relative path
+    /draft <title>      Create a simple draft note with approval
     /quit               Exit
     
 Anything else is sent to the assistant.
@@ -194,6 +195,44 @@ def handle_command(user_message, *, store, tools, session_id, event_log_path) ->
 
         print(f"\nNote: {result['path']}")
         print(result["content"][:2000])
+        return True
+
+    if user_message.startswith("/draft "):
+        title = user_message.removeprefix("/draft ").strip()
+
+        approved = request_approval(
+            "notes.write_draft",
+            {"title": title, "content": "Manual draft created from /draft command."},
+        )
+
+        append_event(
+            event_log_path,
+            "approval",
+            {
+                "session_id": session_id,
+                "tool_name": "notes.write_draft",
+                "tool_args": {
+                    "title": title,
+                    "content": "Manual draft creeated from /draft command.",
+                },
+                "approved": approved,
+            },
+        )
+
+        if not approved:
+            print("\nDraft creation cancelled.")
+            return True
+
+        try:
+            result = tools["notes.write_draft"].handler(
+                title=title,
+                content="Manual draft creeated from /draft command.",
+            )
+        except Exception as exc:
+            print(f"\nCould not create draft: {exc}")
+            return True
+
+        print(f"\nCreated draft: {result['path']}")
         return True
 
     if user_message.startswith("/"):

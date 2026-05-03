@@ -1,6 +1,11 @@
 import pytest
 
-from agint.tools.notes import read_note, resolve_note_path
+from agint.tools.notes import (
+    read_note,
+    resolve_note_path,
+    slugify_title,
+    write_draft_note,
+)
 
 
 def test_resolve_note_path_stays_inside_vault(tmp_path):
@@ -34,3 +39,22 @@ def test_read_node_reads_markdown(tmp_path):
 
     assert result["path"] == "note.md"
     assert result["content"] == "# Hello"
+
+
+def test_slugify_titile():
+    assert slugify_title("My Draft Note!") == "my-draft-note"
+
+
+def test_write_draft_note_creates_markdown_draft(tmp_path):
+    result = write_draft_note(
+        tmp_path,
+        title="My Draft",
+        content="Hello world",
+    )
+
+    draft_path = tmp_path / result["path"]
+
+    assert result["status"] == "draft_creaated"
+    assert result["path"].startswith("drafts/agent drafts/")
+    assert draft_path.exists()
+    assert draft_path.read_text(encoding="utf-8") == "# My Draft\n\nHello world\n"

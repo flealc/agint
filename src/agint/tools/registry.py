@@ -3,7 +3,7 @@ from typing import Any, Callable
 
 from agint.memory.sqlite_store import SQLiteStore
 from agint.tools.tasks import create_task, list_tasks
-from agint.tools.notes import read_note
+from agint.tools.notes import read_note, write_draft_note
 
 
 @dataclass(frozen=True)
@@ -79,6 +79,31 @@ def build_tools(store: SQLiteStore, vault_path) -> dict[str, Tool]:
                 relative_path=relative_path,
             ),
             approval_required=False,
+        ),
+        "notes.write_draft": Tool(
+            name="notes.write_draft",
+            description="Create a new Markdown draft note in drafts/agent drafts inside the Obsidian vault.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Draft note title.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Markdown body content for the draft note.",
+                    },
+                },
+                "required": ["title", "content"],
+                "additionalProperties": False,
+            },
+            handler=lambda title, content: write_draft_note(
+                vault_path,
+                title=title,
+                content=content,
+            ),
+            approval_required=True,
         ),
     }
 
