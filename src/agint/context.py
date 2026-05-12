@@ -19,6 +19,20 @@ When a user asks you to read and summarize a note:
     3. Do not say you are unable to summarize unless the tool failed or the content is unavailable
 """
 
+NOTE_RETRIEVAL_TRIGGERS = [
+    "search my notes",
+    "search notes",
+    "find notes",
+    "find my notes",
+    "look in my notes",
+    "look in my vault",
+    "what did i write",
+    "what have i written",
+    "summarize my notes",
+    "notes about",
+    "note about",
+]
+
 
 def initial_messages() -> list[dict[str, Any]]:
     return [
@@ -28,5 +42,22 @@ def initial_messages() -> list[dict[str, Any]]:
 
 def build_model_context(
     recent_messages: list[dict[str, Any]],
+    retrieved_context: str | None = None,
 ) -> list[dict[str, Any]]:
-    return initial_messages() + recent_messages
+    messages = initial_messages()
+
+    if retrieved_context:
+        messages.append(
+            {
+                "role": "system",
+                "content": f"Relevant retrieved notes: \n{retrieved_context}",
+            }
+        )
+
+    messages.extend(recent_messages)
+    return messages
+
+
+def should_retrieve_notes(user_message: str) -> bool:
+    normalized = user_message.lower()
+    return any(trigger in normalized for trigger in NOTE_RETRIEVAL_TRIGGERS)

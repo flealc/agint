@@ -56,7 +56,7 @@ def run_agent_turn(
         assistant_message = extract_assistant_message(response)
         messages.append(assistant_message)
 
-        if store is not None:
+        if store is not None and assistant_message.get("content") is not None:
             store.add_message(
                 session_id=session_id,
                 role="assistant",

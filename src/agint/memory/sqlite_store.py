@@ -186,6 +186,8 @@ class SQLiteStore:
                 SELECT role, content, tool_call_id
                 FROM messages
                 WHERE session_id = ?
+                AND role IN ('user', 'assistant')
+                AND content IS NOT NULL
                 ORDER BY id DESC
                 LIMIT ?
                 """,

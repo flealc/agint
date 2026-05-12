@@ -9,7 +9,8 @@ from agint.tools.tasks import create_task, list_tasks
 from agint.tools.registry import build_tools
 from agint.agent_loop import run_agent_turn
 from agint.session import create_session_id
-from agint.context import build_model_context
+from agint.context import build_model_context, should_retrieve_notes
+from agint.retrieval.qmd import format_qmd_results, qmd_search
 
 
 QUIT_COMMANDS = {"exit", "quit", "/exit", "/quit"}
@@ -125,8 +126,38 @@ def run_chat_turn(
         content=user_message,
     )
 
+    retrieved_context = None
+
+    if should_retrieve_notes(user_message):
+        try:
+            results = qmd_search(user_message, limit=5)
+            retrieved_context = format_qmd_results(results)
+
+            append_event(
+                event_log_path,
+                "notes_retrieved",
+                {
+                    "session_id": session_id,
+                    "query": user_message,
+                    "result_count": len(results),
+                },
+            )
+        except Exception as exc:
+            append_event(
+                event_log_path,
+                "notes_retrieval_failed",
+                {
+                    "session_id": session_id,
+                    "query": user_message,
+                    "error": str(exc),
+                },
+            )
+
     recent_messages = store.get_recent_messages(session_id, limit=10)
-    model_messages = build_model_context(recent_messages)
+    model_messages = build_model_context(
+        recent_messages,
+        retrieved_context=retrieved_context,
+    )
 
     append_event(
         event_log_path,

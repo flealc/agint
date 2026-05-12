@@ -91,3 +91,45 @@ def test_get_recent_messages_returns_oldest_to_newest(tmp_path):
         "message 3",
         "message 4",
     ]
+
+
+def test_get_recent_messages_excludes_tool_protocol_messages(tmp_path):
+    db_path = tmp_path / "assistant.db"
+    schema_path = Path("src/agint/memory/schema.sql")
+
+    store = SQLiteStore(db_path)
+    store.init_schema(schema_path)
+    store.create_session("test-session")
+
+    store.add_message(
+        session_id="test-session",
+        role="user",
+        content="Find my notes about agents",
+    )
+    store.add_message(
+        session_id="test-session",
+        role="assistant",
+        content=None,
+    )
+    store.add_message(
+        session_id="test-session",
+        role="tool",
+        content='{"results": []}',
+        tool_call_id="call_123",
+        tool_name="notes.search",
+    )
+    store.add_message(
+        session_id="test-session",
+        role="assistant",
+        content="I could not find matching notes.",
+    )
+
+    raw_messages = store.list_messages("test-session")
+    recent_messages = store.get_recent_messages("test-session", limit=10)
+
+    assert len(raw_messages) == 4
+    assert [message["role"] for message in recent_messages] == [
+        "user",
+        "assistant",
+    ]
+    assert recent_messages[1]["content"] == "I could not find matching notes."
