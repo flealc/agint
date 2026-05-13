@@ -5,6 +5,8 @@ from agint.memory.sqlite_store import SQLiteStore
 from agint.tools.tasks import create_task, list_tasks
 from agint.tools.notes import read_note, write_draft_note
 from agint.tools.reminders import create_reminder, list_reminders
+from agint.tools.preferences import get_preference, list_preferences, set_preference
+from agint.tools.calendar import list_proposals, propose_event
 from agint.retrieval.qmd import qmd_search, format_qmd_results
 
 
@@ -179,6 +181,109 @@ def build_tools(store: SQLiteStore, vault_path) -> dict[str, Tool]:
                 "additionalProperties": False,
             },
             handler=lambda status="pending": list_reminders(store, status=status),
+            approval_required=False,
+        ),
+        "preferences.set": Tool(
+            name="preferences.set",
+            description="Save a user preference as a key/value pair.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "Preference key, e.g. timezone or default_reminder_time.",
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Preference value.",
+                    },
+                },
+                "required": ["key", "value"],
+                "additionalProperties": False,
+            },
+            handler=lambda key, value: set_preference(store, key=key, value=value),
+            approval_required=True,
+        ),
+        "preferences.get": Tool(
+            name="preferences.get",
+            description="Read one saved user preference.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "Preference key.",
+                    },
+                },
+                "required": ["key"],
+                "additionalProperties": False,
+            },
+            handler=lambda key: get_preference(store, key=key),
+            approval_required=False,
+        ),
+        "preferences.list": Tool(
+            name="preferences.list",
+            description="List saved user preferences.",
+            parameters={
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+            handler=lambda: list_preferences(store),
+            approval_required=False,
+        ),
+        "calendar.propose_event": Tool(
+            name="calendar.propose_event",
+            description="Create a local calendar event proposal. This does not write to an external calendar.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Event title.",
+                    },
+                    "start_at": {
+                        "type": "string",
+                        "description": "ISO 8601 event start datetime.",
+                    },
+                    "end_at": {
+                        "type": "string",
+                        "description": "ISO 8601 event end datetime.",
+                    },
+                    "notes": {
+                        "type": ["string", "null"],
+                        "description": "Optional event notes.",
+                    },
+                },
+                "required": ["title", "start_at", "end_at"],
+                "additionalProperties": False,
+            },
+            handler=lambda title, start_at, end_at, notes=None: propose_event(
+                store,
+                title=title,
+                start_at=start_at,
+                end_at=end_at,
+                notes=notes,
+                source="tool",
+            ),
+            approval_required=True,
+        ),
+        "calendar.list_proposals": Tool(
+            name="calendar.list_proposals",
+            description="List local calendar event proposals.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": ["string", "null"],
+                        "description": "Proposal status to filter by. Use null to list all proposals.",
+                    },
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+            handler=lambda status="proposed": list_proposals(store, status=status),
             approval_required=False,
         ),
     }

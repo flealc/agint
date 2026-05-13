@@ -67,7 +67,11 @@ Rules:
         {"role": "user", "content": text},
     ]
 
-    response = call_model(messages, model_alias="fast")
+    response = call_model(
+        messages,
+        model_alias="fast",
+        response_format={"type": "json_object"},
+    )
     content = response.choices[0].message.content
     return extract_json_object(content)
 

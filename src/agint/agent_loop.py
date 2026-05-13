@@ -102,6 +102,16 @@ def run_agent_turn(
                 if tool.approval_required:
                     approved = request_approval(tool_name, tool_args)
 
+                    if store is not None:
+                        store.record_approval(
+                            session_id=session_id,
+                            tool_name=tool_name,
+                            tool_args_json=json.dumps(
+                                tool_args, ensure_ascii=False, default=str
+                            ),
+                            approved=approved,
+                        )
+
                     append_event(
                         event_log_path,
                         "approval",

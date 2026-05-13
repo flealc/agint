@@ -40,6 +40,66 @@ def test_create_and_list_reminders(tmp_path):
     assert reminders[0]["title"] == "Call Luis"
 
 
+def test_set_get_and_list_preferences(tmp_path):
+    db_path = tmp_path / "assistant.db"
+    schema_path = Path("src/agint/memory/schema.sql")
+
+    store = SQLiteStore(db_path)
+    store.init_schema(schema_path)
+
+    saved = store.set_preference("timezone", "America/Chicago")
+    fetched = store.get_preference("timezone")
+    preferences = store.list_preferences()
+
+    assert saved["key"] == "timezone"
+    assert saved["value"] == "America/Chicago"
+    assert fetched is not None
+    assert fetched["value"] == "America/Chicago"
+    assert len(preferences) == 1
+
+
+def test_record_approval(tmp_path):
+    db_path = tmp_path / "assistant.db"
+    schema_path = Path("src/agint/memory/schema.sql")
+
+    store = SQLiteStore(db_path)
+    store.init_schema(schema_path)
+    store.create_session("test-session")
+
+    approval = store.record_approval(
+        session_id="test-session",
+        tool_name="tasks.create",
+        tool_args_json='{"title": "Buy coffee"}',
+        approved=True,
+    )
+
+    assert approval["session_id"] == "test-session"
+    assert approval["tool_name"] == "tasks.create"
+    assert approval["approved"] == 1
+
+
+def test_create_and_list_calendar_proposals(tmp_path):
+    db_path = tmp_path / "assistant.db"
+    schema_path = Path("src/agint/memory/schema.sql")
+
+    store = SQLiteStore(db_path)
+    store.init_schema(schema_path)
+
+    proposal = store.create_calendar_proposal(
+        title="Call Luis",
+        start_at="2026-05-14T10:00:00-05:00",
+        end_at="2026-05-14T10:30:00-05:00",
+        notes="Discuss project",
+        source="test",
+    )
+    proposals = store.list_calendar_proposals()
+
+    assert proposal["title"] == "Call Luis"
+    assert proposal["status"] == "proposed"
+    assert len(proposals) == 1
+    assert proposals[0]["title"] == "Call Luis"
+
+
 def test_create_get_and_end_session(tmp_path):
     db_path = tmp_path / "assistant.db"
     schema_path = Path("src/agint/memory/schema.sql")

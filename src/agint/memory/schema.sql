@@ -18,6 +18,13 @@ CREATE TABLE IF NOT EXISTS reminders(
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS preferences(
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS sessions(
   id TEXT PRIMARY KEY,
   summary TEXT,
@@ -43,4 +50,16 @@ CREATE TABLE IF NOT EXISTS messages (
   tool_name TEXT,
   created_at TEXT NOT NULL,
   FOREIGN KEY (session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS calendar_proposals(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  start_at TEXT NOT NULL,
+  end_at TEXT NOT NULL,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'proposed',
+  source TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );

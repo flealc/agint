@@ -2,6 +2,7 @@ from agint.config import load_settings
 from agint.events import append_event
 from agint.approvals import request_approval
 
+import json
 from pathlib import Path
 
 from agint.memory.sqlite_store import SQLiteStore
@@ -11,6 +12,8 @@ from agint.tools.reminders import (
     list_reminders,
     parse_reminder_request,
 )
+from agint.tools.preferences import list_preferences, set_preference
+from agint.tools.calendar import list_proposals, propose_event
 from agint.tools.registry import build_tools
 from agint.agent_loop import run_agent_turn
 from agint.session import create_session_id
@@ -32,6 +35,10 @@ Commands:
     /task <title>           Create a task manually with approval
     /reminders              List pending reminders
     /reminder <request>     Create a reminder from natural language
+    /prefs                  List saved preferences
+    /pref <key> <value>     Save a preference with approval
+    /proposals              List calendar proposals
+    /propose-event <start> <end> <title>
     /read-note <path>       Read a Markdown note by vault-relative path
     /draft <title>          Create a simple draft note with approval
     /search-notes <query>   Search notes with QMD
@@ -39,6 +46,33 @@ Commands:
     
 Anything else is sent to the assistant.
 """.strip()
+    )
+
+
+def record_approval(
+    *,
+    store,
+    event_log_path,
+    session_id: str,
+    tool_name: str,
+    tool_args: dict,
+    approved: bool,
+) -> None:
+    store.record_approval(
+        session_id=session_id,
+        tool_name=tool_name,
+        tool_args_json=json.dumps(tool_args, ensure_ascii=False),
+        approved=approved,
+    )
+    append_event(
+        event_log_path,
+        "approval",
+        {
+            "session_id": session_id,
+            "tool_name": tool_name,
+            "tool_args": tool_args,
+            "approved": approved,
+        },
     )
 
 
@@ -58,18 +92,16 @@ def handle_manual_task_command(
         },
     )
 
-    append_event(
-        event_log_path,
-        "approval",
-        {
-            "session_id": session_id,
-            "tool_name": "tasks.create",
-            "tool_args": {
-                "title": title,
-                "source": "manual",
-            },
-            "approved": approved,
+    record_approval(
+        store=store,
+        event_log_path=event_log_path,
+        session_id=session_id,
+        tool_name="tasks.create",
+        tool_args={
+            "title": title,
+            "source": "manual",
         },
+        approved=approved,
     )
 
     if not approved:
@@ -158,20 +190,18 @@ def handle_manual_reminder_command(
         },
     )
 
-    append_event(
-        event_log_path,
-        "approval",
-        {
-            "session_id": session_id,
-            "tool_name": "reminders.create",
-            "tool_args": {
-                "title": title,
-                "remind_at": remind_at,
-                "source": "manual",
-                "original_text": reminder_text,
-            },
-            "approved": approved,
+    record_approval(
+        store=store,
+        event_log_path=event_log_path,
+        session_id=session_id,
+        tool_name="reminders.create",
+        tool_args={
+            "title": title,
+            "remind_at": remind_at,
+            "source": "manual",
+            "original_text": reminder_text,
         },
+        approved=approved,
     )
 
     if not approved:
@@ -186,6 +216,113 @@ def handle_manual_reminder_command(
 
     print(f"\nCreated reminder #{reminder['id']}: {reminder['title']}")
     print(f"At: {reminder['remind_at']}")
+    return True
+
+
+def handle_preferences_command(
+    user_message, *, store, session_id, event_log_path
+) -> bool:
+    if user_message == "/prefs":
+        preferences = list_preferences(store)
+
+        if not preferences:
+            print("\nNo saved preferences.")
+        else:
+            print("\nSaved preferences:")
+            for preference in preferences:
+                print(f"- {preference['key']}: {preference['value']}")
+
+        return True
+
+    if not user_message.startswith("/pref "):
+        return False
+
+    rest = user_message.removeprefix("/pref ").strip()
+    parts = rest.split(" ", 1)
+
+    if len(parts) != 2:
+        print("\nUsage: /pref <key> <value>")
+        return True
+
+    key, value = parts
+    tool_args = {"key": key, "value": value}
+    approved = request_approval("preferences.set", tool_args)
+    record_approval(
+        store=store,
+        event_log_path=event_log_path,
+        session_id=session_id,
+        tool_name="preferences.set",
+        tool_args=tool_args,
+        approved=approved,
+    )
+
+    if not approved:
+        print("\nPreference update cancelled.")
+        return True
+
+    preference = set_preference(store, key=key, value=value)
+    print(f"\nSaved preference: {preference['key']} = {preference['value']}")
+    return True
+
+
+def handle_calendar_command(
+    user_message, *, store, session_id, event_log_path
+) -> bool:
+    if user_message == "/proposals":
+        proposals = list_proposals(store)
+
+        if not proposals:
+            print("\nNo calendar proposals.")
+        else:
+            print("\nCalendar proposals:")
+            for proposal in proposals:
+                print(
+                    f"- #{proposal['id']}: {proposal['start_at']} - "
+                    f"{proposal['end_at']} | {proposal['title']}"
+                )
+
+        return True
+
+    if not user_message.startswith("/propose-event "):
+        return False
+
+    rest = user_message.removeprefix("/propose-event ").strip()
+    parts = rest.split(" ", 2)
+
+    if len(parts) != 3:
+        print("\nUsage: /propose-event <start ISO> <end ISO> <title>")
+        return True
+
+    start_at, end_at, title = parts
+    tool_args = {
+        "title": title,
+        "start_at": start_at,
+        "end_at": end_at,
+        "notes": None,
+        "source": "manual",
+    }
+    approved = request_approval("calendar.propose_event", tool_args)
+    record_approval(
+        store=store,
+        event_log_path=event_log_path,
+        session_id=session_id,
+        tool_name="calendar.propose_event",
+        tool_args=tool_args,
+        approved=approved,
+    )
+
+    if not approved:
+        print("\nCalendar proposal cancelled.")
+        return True
+
+    proposal = propose_event(
+        store,
+        title=title,
+        start_at=start_at,
+        end_at=end_at,
+        source="manual",
+    )
+    print(f"\nCreated calendar proposal #{proposal['id']}: {proposal['title']}")
     return True
 
 
@@ -300,6 +437,22 @@ def handle_command(user_message, *, store, tools, session_id, event_log_path) ->
     if handle_tools_command(user_message, tools=tools):
         return True
 
+    if handle_preferences_command(
+        user_message,
+        store=store,
+        session_id=session_id,
+        event_log_path=event_log_path,
+    ):
+        return True
+
+    if handle_calendar_command(
+        user_message,
+        store=store,
+        session_id=session_id,
+        event_log_path=event_log_path,
+    ):
+        return True
+
     # temp debug command
     if user_message == "/messages":
         messages = store.get_recent_messages(session_id, limit=10)
@@ -335,18 +488,16 @@ def handle_command(user_message, *, store, tools, session_id, event_log_path) ->
             {"title": title, "content": "Manual draft created from /draft command."},
         )
 
-        append_event(
-            event_log_path,
-            "approval",
-            {
-                "session_id": session_id,
-                "tool_name": "notes.write_draft",
-                "tool_args": {
-                    "title": title,
-                    "content": "Manual draft creeated from /draft command.",
-                },
-                "approved": approved,
+        record_approval(
+            store=store,
+            event_log_path=event_log_path,
+            session_id=session_id,
+            tool_name="notes.write_draft",
+            tool_args={
+                "title": title,
+                "content": "Manual draft created from /draft command.",
             },
+            approved=approved,
         )
 
         if not approved:
@@ -356,7 +507,7 @@ def handle_command(user_message, *, store, tools, session_id, event_log_path) ->
         try:
             result = tools["notes.write_draft"].handler(
                 title=title,
-                content="Manual draft creeated from /draft command.",
+                content="Manual draft created from /draft command.",
             )
         except Exception as exc:
             print(f"\nCould not create draft: {exc}")

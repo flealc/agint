@@ -121,6 +121,153 @@ class SQLiteStore:
 
         return [dict(row) for row in rows]
 
+    def set_preference(self, key: str, value: str) -> dict[str, Any]:
+        now = utc_now()
+
+        with self.connect() as conn:
+            existing = conn.execute(
+                """
+                SELECT created_at
+                FROM preferences
+                WHERE key = ?
+                """,
+                (key,),
+            ).fetchone()
+            created_at = existing["created_at"] if existing else now
+
+            conn.execute(
+                """
+                INSERT INTO preferences (key, value, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at
+                """,
+                (key, value, created_at, now),
+            )
+
+            row = conn.execute(
+                """
+                SELECT key, value, created_at, updated_at
+                FROM preferences
+                WHERE key = ?
+                """,
+                (key,),
+            ).fetchone()
+
+        return dict(row)
+
+    def get_preference(self, key: str) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT key, value, created_at, updated_at
+                FROM preferences
+                WHERE key = ?
+                """,
+                (key,),
+            ).fetchone()
+
+        return dict(row) if row else None
+
+    def list_preferences(self) -> list[dict[str, Any]]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT key, value, created_at, updated_at
+                FROM preferences
+                ORDER BY key ASC
+                """
+            ).fetchall()
+
+        return [dict(row) for row in rows]
+
+    def record_approval(
+        self,
+        session_id: str,
+        tool_name: str,
+        tool_args_json: str,
+        approved: bool,
+    ) -> dict[str, Any]:
+        now = utc_now()
+
+        with self.connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO approvals (
+                    session_id, tool_name, tool_args_json, approved, created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (session_id, tool_name, tool_args_json, int(approved), now),
+            )
+            approval_id = cursor.lastrowid
+
+            row = conn.execute(
+                """
+                SELECT id, session_id, tool_name, tool_args_json, approved, created_at
+                FROM approvals
+                WHERE id = ?
+                """,
+                (approval_id,),
+            ).fetchone()
+
+        return dict(row)
+
+    def create_calendar_proposal(
+        self,
+        title: str,
+        start_at: str,
+        end_at: str,
+        notes: str | None = None,
+        source: str | None = None,
+    ) -> dict[str, Any]:
+        now = utc_now()
+
+        with self.connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO calendar_proposals (
+                    title, start_at, end_at, notes, source, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (title, start_at, end_at, notes, source, now, now),
+            )
+            proposal_id = cursor.lastrowid
+
+            row = conn.execute(
+                """
+                SELECT id, title, start_at, end_at, notes, status, source, created_at, updated_at
+                FROM calendar_proposals
+                WHERE id = ?
+                """,
+                (proposal_id,),
+            ).fetchone()
+
+        return dict(row)
+
+    def list_calendar_proposals(
+        self,
+        status: str | None = "proposed",
+    ) -> list[dict[str, Any]]:
+        query = """
+            SELECT id, title, start_at, end_at, notes, status, source, created_at, updated_at
+            FROM calendar_proposals
+        """
+        params: tuple[Any, ...] = ()
+
+        if status is not None:
+            query += " WHERE status = ?"
+            params = (status,)
+
+        query += " ORDER BY start_at ASC"
+
+        with self.connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+
+        return [dict(row) for row in rows]
+
     def create_session(self, session_id: str) -> dict[str, Any]:
         now = utc_now()
 
@@ -191,16 +338,16 @@ class SQLiteStore:
                 (session_id, role, content, tool_call_id, tool_name, now),
             )
 
-        message_id = cursor.lastrowid
+            message_id = cursor.lastrowid
 
-        row = conn.execute(
-            """
-            SELECT id, session_id, role, content, tool_call_id, tool_name, created_at
-            FROM messages
-            WHERE id = ?
-            """,
-            (message_id,),
-        ).fetchone()
+            row = conn.execute(
+                """
+                SELECT id, session_id, role, content, tool_call_id, tool_name, created_at
+                FROM messages
+                WHERE id = ?
+                """,
+                (message_id,),
+            ).fetchone()
 
         return dict(row)
 
