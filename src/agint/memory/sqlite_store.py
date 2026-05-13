@@ -70,6 +70,57 @@ class SQLiteStore:
 
         return [dict(row) for row in rows]
 
+    def create_reminder(
+        self,
+        title: str,
+        remind_at: str,
+        source: str | None = None,
+    ) -> dict[str, Any]:
+        now = utc_now()
+
+        with self.connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO reminders (title, remind_at, source, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (title, remind_at, source, now, now),
+            )
+
+            reminder_id = cursor.lastrowid
+
+            row = conn.execute(
+                """
+                SELECT id, title, remind_at, status, source, created_at, updated_at
+                FROM reminders
+                WHERE id = ?
+                """,
+                (reminder_id,),
+            ).fetchone()
+
+        return dict(row)
+
+    def list_reminders(
+        self,
+        status: str | None = "pending",
+    ) -> list[dict[str, Any]]:
+        query = """
+            SELECT id, title, remind_at, status, source, created_at, updated_at
+            FROM reminders
+        """
+        params: tuple[Any, ...] = ()
+
+        if status is not None:
+            query += " WHERE status = ?"
+            params = (status,)
+
+        query += " ORDER BY remind_at ASC"
+
+        with self.connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+
+        return [dict(row) for row in rows]
+
     def create_session(self, session_id: str) -> dict[str, Any]:
         now = utc_now()
 

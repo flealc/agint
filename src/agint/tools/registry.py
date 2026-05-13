@@ -4,6 +4,7 @@ from typing import Any, Callable
 from agint.memory.sqlite_store import SQLiteStore
 from agint.tools.tasks import create_task, list_tasks
 from agint.tools.notes import read_note, write_draft_note
+from agint.tools.reminders import create_reminder, list_reminders
 from agint.retrieval.qmd import qmd_search, format_qmd_results
 
 
@@ -135,6 +136,49 @@ def build_tools(store: SQLiteStore, vault_path) -> dict[str, Tool]:
                 "additionalProperties": False,
             },
             handler=lambda query, limit=5: search_notes_with_qmd(query, limit),
+            approval_required=False,
+        ),
+        "reminders.create": Tool(
+            name="reminders.create",
+            description="Create a local reminder for the user.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Reminder title.",
+                    },
+                    "remind_at": {
+                        "type": "string",
+                        "description": "ISO 8601 reminder datetime.",
+                    },
+                },
+                "required": ["title", "remind_at"],
+                "additionalProperties": False,
+            },
+            handler=lambda title, remind_at: create_reminder(
+                store,
+                title=title,
+                remind_at=remind_at,
+                source="tool",
+            ),
+            approval_required=True,
+        ),
+        "reminders.list": Tool(
+            name="reminders.list",
+            description="List local reminders.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": ["string", "null"],
+                        "description": "Reminder status to filter by. Use null to list all reminders.",
+                    },
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+            handler=lambda status="pending": list_reminders(store, status=status),
             approval_required=False,
         ),
     }

@@ -18,3 +18,14 @@ def test_tools_schemas_include_notes_read(tmp_path):
     names = {schema["function"]["name"] for schema in schemas}
 
     assert "notes.read" in names
+
+
+def test_build_tools_includes_reminders(tmp_path):
+    store = SQLiteStore(tmp_path / "assistant.db")
+
+    tools = build_tools(store, tmp_path)
+
+    assert "reminders.create" in tools
+    assert tools["reminders.create"].approval_required is True
+    assert "reminders.list" in tools
+    assert tools["reminders.list"].approval_required is False

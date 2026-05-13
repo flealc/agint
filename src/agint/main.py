@@ -6,6 +6,11 @@ from pathlib import Path
 
 from agint.memory.sqlite_store import SQLiteStore
 from agint.tools.tasks import create_task, list_tasks
+from agint.tools.reminders import (
+    create_reminder,
+    list_reminders,
+    parse_reminder_request,
+)
 from agint.tools.registry import build_tools
 from agint.agent_loop import run_agent_turn
 from agint.session import create_session_id
@@ -25,6 +30,8 @@ Commands:
     /tools                  List available model tools
     /tasks                  List open tasks
     /task <title>           Create a task manually with approval
+    /reminders              List pending reminders
+    /reminder <request>     Create a reminder from natural language
     /read-note <path>       Read a Markdown note by vault-relative path
     /draft <title>          Create a simple draft note with approval
     /search-notes <query>   Search notes with QMD
@@ -99,6 +106,86 @@ def handle_tools_command(user_message, *, tools) -> bool:
         approval = "approval required" if tool.approval_required else "safe"
         print(f"- {tool.name}: {approval}")
 
+    return True
+
+
+def handle_reminders_command(user_message, *, store) -> bool:
+    if user_message != "/reminders":
+        return False
+
+    reminders = list_reminders(store)
+
+    if not reminders:
+        print("\nNo pending reminders.")
+    else:
+        print("\nPending reminders:")
+        for reminder in reminders:
+            print(
+                f"- #{reminder['id']}: {reminder['remind_at']} - {reminder['title']}"
+            )
+
+    return True
+
+
+def handle_manual_reminder_command(
+    user_message, *, store, session_id, event_log_path
+) -> bool:
+    if not user_message.startswith("/reminder "):
+        return False
+
+    reminder_text = user_message.removeprefix("/reminder ").strip()
+
+    try:
+        parsed = parse_reminder_request(reminder_text)
+    except Exception as exc:
+        print(f"\nCould not parse reminder: {exc}")
+        return True
+
+    if parsed.get("needs_clarification"):
+        print(f"\n{parsed.get('clarification_question')}")
+        return True
+
+    title = parsed["title"]
+    remind_at = parsed["remind_at"]
+
+    approved = request_approval(
+        "reminders.create",
+        {
+            "title": title,
+            "remind_at": remind_at,
+            "source": "manual",
+            "original_text": reminder_text,
+        },
+    )
+
+    append_event(
+        event_log_path,
+        "approval",
+        {
+            "session_id": session_id,
+            "tool_name": "reminders.create",
+            "tool_args": {
+                "title": title,
+                "remind_at": remind_at,
+                "source": "manual",
+                "original_text": reminder_text,
+            },
+            "approved": approved,
+        },
+    )
+
+    if not approved:
+        print("\nReminder creation cancelled.")
+        return True
+
+    reminder = create_reminder(
+        store,
+        title=title,
+        remind_at=remind_at,
+    )
+
+    print(f"\nCreated reminder #{reminder['id']}: {reminder['title']}")
+    print(f"At: {reminder['remind_at']}")
     return True
 
 
@@ -197,6 +284,17 @@ def handle_command(user_message, *, store, tools, session_id, event_log_path) ->
         return True
 
     if handle_tasks_command(user_message, store=store):
+        return True
+
+    if handle_reminders_command(user_message, store=store):
+        return True
+
+    if handle_manual_reminder_command(
+        user_message,
+        store=store,
+        session_id=session_id,
+        event_log_path=event_log_path,
+    ):
         return True
 
     if handle_tools_command(user_message, tools=tools):

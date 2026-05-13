@@ -19,6 +19,27 @@ def test_create_and_list_tasks(tmp_path):
     assert tasks[0]["title"] == "Buy coffee"
 
 
+def test_create_and_list_reminders(tmp_path):
+    db_path = tmp_path / "assistant.db"
+    schema_path = Path("src/agint/memory/schema.sql")
+
+    store = SQLiteStore(db_path)
+    store.init_schema(schema_path)
+
+    reminder = store.create_reminder(
+        title="Call Luis",
+        remind_at="2026-05-14T10:00:00-05:00",
+        source="test",
+    )
+
+    reminders = store.list_reminders()
+
+    assert reminder["title"] == "Call Luis"
+    assert reminder["status"] == "pending"
+    assert len(reminders) == 1
+    assert reminders[0]["title"] == "Call Luis"
+
+
 def test_create_get_and_end_session(tmp_path):
     db_path = tmp_path / "assistant.db"
     schema_path = Path("src/agint/memory/schema.sql")
